@@ -151,8 +151,12 @@ describe('bundle', () => {
     expect(Math.abs(similarity(out, encodeAtom('unrelated')))).toBeLessThan(0.1)
   })
 
-  it('is order-independent', () => {
-    expect(Array.from(bundle(a, b, c))).toEqual(Array.from(bundle(c, a, b)))
+  it('is order-independent up to floating point', () => {
+    const x = bundle(a, b, c)
+    const y = bundle(c, a, b)
+    let maxDiff = 0
+    for (let i = 0; i < x.length; i++) maxDiff = Math.max(maxDiff, Math.abs(x[i]! - y[i]!))
+    expect(maxDiff).toBeLessThan(1e-12)
   })
 
   it('keeps phases in [0, 2π)', () => {
