@@ -149,13 +149,3 @@ export class HolographicMemory {
   }
 }
 ```
-
-### Next steps — pick your flavor
-
-1. **Pure core only** (`hrr.js` with the four functions) — drop into any Express route.
-2. **Full mini-memory** (the class above + JSON serialize/deserialize).
-3. **TypeScript + tests** (Vitest or Node test runner).
-4. **npm package** ready to publish (`hrr` or `@yourorg/hrr`).
-
-Which direction do you want to go first?  
-I can drop a complete, ready-to-paste file (or a small repo structure) right now.
