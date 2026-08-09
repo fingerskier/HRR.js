@@ -16,6 +16,17 @@ function assertSameDim(a: PhaseVector, b: PhaseVector): void {
 }
 
 /**
+ * Fold a phase from (-2π, 2π) into [0, 2π). Adding 2π to a tiny negative
+ * value rounds to exactly 2π, so the result must be folded back down to
+ * keep the half-open invariant.
+ */
+export function canonicalPhase(v: number): number {
+  if (v < 0) v += TWO_PI
+  if (v >= TWO_PI) v -= TWO_PI
+  return v
+}
+
+/**
  * Deterministic phase vector for a label.
  *
  * Phases are derived from SHA-256 of `${label}:${counter}` — each 32-byte
@@ -61,9 +72,28 @@ export function unbind(a: PhaseVector, b: PhaseVector): PhaseVector {
   assertSameDim(a, b)
   const out = new Float64Array(a.length)
   for (let i = 0; i < a.length; i++) {
-    let v = (a[i]! - b[i]!) % TWO_PI
-    if (v < 0) v += TWO_PI
-    out[i] = v
+    out[i] = canonicalPhase((a[i]! - b[i]!) % TWO_PI)
+  }
+  return out
+}
+
+/**
+ * Cyclically shift a vector's components by `k` positions (component `i`
+ * of the result is component `i - k` of the input). A permuted vector is
+ * near-orthogonal to the original, and `permute(permute(v, k), -k)`
+ * restores `v` exactly — the standard non-commutative marker for encoding
+ * sequences and protecting against {@link bind}'s symmetry.
+ */
+export function permute(v: PhaseVector, k: number = 1): PhaseVector {
+  if (!Number.isInteger(k)) {
+    throw new RangeError(`shift must be an integer, got ${k}`)
+  }
+  const n = v.length
+  const out = new Float64Array(n)
+  if (n === 0) return out
+  const shift = ((k % n) + n) % n
+  for (let i = 0; i < n; i++) {
+    out[(i + shift) % n] = v[i]!
   }
   return out
 }
@@ -90,9 +120,7 @@ export function bundle(...vectors: PhaseVector[]): PhaseVector {
 
   const out = new Float64Array(dim)
   for (let i = 0; i < dim; i++) {
-    let phase = Math.atan2(sumSin[i]!, sumCos[i]!)
-    if (phase < 0) phase += TWO_PI
-    out[i] = phase
+    out[i] = canonicalPhase(Math.atan2(sumSin[i]!, sumCos[i]!))
   }
   return out
 }
