@@ -1,7 +1,7 @@
 # HRR.js
 
 [![CI](https://github.com/fingerskier/HRR.js/actions/workflows/ci.yml/badge.svg)](https://github.com/fingerskier/HRR.js/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/hrr.js.svg)](https://www.npmjs.com/package/hrr.js)
+[![npm](https://img.shields.io/npm/v/hrr-lib.svg)](https://www.npmjs.com/package/hrr-lib)
 
 Minimal, deterministic, zero-dependency [Holographic Reduced Representations](https://en.wikipedia.org/wiki/Holographic_Reduced_Representation) for Node and edge runtimes, built on phase vectors.
 
@@ -15,16 +15,18 @@ Minimal, deterministic, zero-dependency [Holographic Reduced Representations](ht
 ## Install
 
 ```sh
-npm install hrr.js
+npm install hrr-lib
 ```
+
+> The package is published as **`hrr-lib`** — the npm registry rejected `hrr.js` as too similar to an existing package name. The repository keeps the HRR.js name.
 
 Requires Node ≥ 18 (or any runtime with `node:crypto` support, e.g. Cloudflare Workers with `nodejs_compat`).
 
 ## Quick start
 
 ```js
-import { encodeAtom, bind, unbind, similarity } from 'hrr.js'
-// CJS also works: const { encodeAtom, bind, unbind, similarity } = require('hrr.js')
+import { encodeAtom, bind, unbind, similarity } from 'hrr-lib'
+// CJS also works: const { encodeAtom, bind, unbind, similarity } = require('hrr-lib')
 
 const alice = encodeAtom('alice')
 const livesIn = encodeAtom('lives_in')
@@ -40,10 +42,28 @@ similarity(recovered, paris)              // ≈ 1.0
 similarity(recovered, encodeAtom('london')) // ≈ 0.0
 ```
 
+### Direction and order
+
+`bind` is commutative and associative, so the fact above is a symmetric product of all three atoms — *"alice lives_in paris"* and *"paris lives_in alice"* encode to the **identical** vector. (Classical HRR shares this property; circular convolution is commutative too.) When direction matters, bundle role-filler pairs instead:
+
+```js
+import { bundle } from 'hrr-lib'
+
+const fact = bundle(
+  bind(encodeAtom('subject'), alice),
+  bind(encodeAtom('verb'), livesIn),
+  bind(encodeAtom('object'), paris),
+)
+
+unbind(fact, encodeAtom('object'))  // ≈ paris (≈ 0.57 similarity; cleanup picks it)
+```
+
+For ordered sequences, tag positions with `permute` (cyclic shift): `bind(a, permute(b))` distinguishes `[a, b]` from `[b, a]`, and `permute(v, k)` marks position `k`.
+
 ### Holographic memory
 
 ```js
-import { HolographicMemory } from 'hrr.js'
+import { HolographicMemory } from 'hrr-lib'
 
 const mem = new HolographicMemory() // dim 1024 by default
 
@@ -56,6 +76,9 @@ mem.probe('bob')
 
 mem.probe('mallory')
 // → { value: ..., confidence: ≈0 }  (low confidence = no such fact)
+
+mem.probe('mallory', { minConfidence: 0.3 })
+// → null
 ```
 
 All facts share **one** superposed trace vector; `probe` unbinds the key and cleans up the result against the known values. Confidence degrades gracefully as the trace fills — dim 1024 comfortably holds ~10 facts with reliable recall.
@@ -80,6 +103,12 @@ Inverse of `bind`: elementwise phase subtraction. `unbind(bind(a, b), b) ≈ a` 
 
 Superpose any number of vectors via the elementwise circular mean. The result stays similar to every input (≈ 0.63 for two inputs at dim 1024) while remaining near-orthogonal to everything else. Throws if called with no vectors.
 
+**Not associative:** the circular mean renormalizes, so `bundle(bundle(a, b), c)` gives `c` as much weight as `a` and `b` combined. Superpose everything in one call when facts should carry equal weight — or keep running cos/sin sums, which is exactly what `HolographicMemory` does.
+
+### `permute(v, k = 1): PhaseVector`
+
+Cyclically shift components by `k` positions (negative `k` inverts: `permute(permute(v, k), -k)` restores `v` exactly). Permutation preserves similarity and yields a vector near-orthogonal to the original — the standard tool for encoding order on top of commutative `bind`.
+
 ### `similarity(a, b): number`
 
 Mean cosine of the phase differences — cosine similarity of the corresponding complex unit vectors. `1` for identical vectors, `≈ 0` for unrelated atoms, bounded in `[-1, 1]`.
@@ -89,10 +118,15 @@ Mean cosine of the phase differences — cosine similarity of the corresponding 
 | Member | Description |
 | --- | --- |
 | `store(key, value)` | Bind `key`→`value` and add the pair to the single superposed trace. Re-storing a key exactly replaces its previous binding. |
-| `probe(key)` | `{ value, confidence } \| null` — best cleanup match for the unbound trace, `null` when empty. |
+| `probe(key, options?)` | `{ value, confidence } \| null` — best cleanup match for the unbound trace, `null` when empty or below `options.minConfidence`. |
+| `probeVector(vec, options?)` | Same cleanup, but probes with a raw key vector — e.g. one composed with `bind`/`bundle` that never existed as a stored string. |
+| `has(key)` / `keys()` | Key membership / iterator over stored keys. |
+| `delete(key)` | Exactly subtract the key's binding from the trace; returns whether it existed. |
 | `size` | Number of stored facts. |
-| `clear()` | Reset the trace and fact table. |
+| `clear()` | Reset the trace, fact table, and atom cache. |
 | `dim` | Vector dimensionality (readonly). |
+
+Encoded atoms are cached per instance, so repeated stores and probes don't re-hash. Note that for exact string keys `probe` recovers nothing the internal key→value cleanup table doesn't already hold — the trace demonstrates the algebra (graceful degradation, capacity) and earns its keep when probing with `probeVector` and composed keys.
 
 ### Constants
 

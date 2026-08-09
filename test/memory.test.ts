@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { HolographicMemory } from '../src/index.js'
+import { HolographicMemory, encodeAtom } from '../src/index.js'
 
 describe('HolographicMemory', () => {
   it('defaults to dim 1024 and accepts a custom dim', () => {
@@ -83,6 +83,68 @@ describe('HolographicMemory', () => {
 
     const result = mem.probe('alice')
     expect(result!.value).toBe('rome')
+  })
+
+  it('reports key membership and iterates keys', () => {
+    const mem = new HolographicMemory()
+    mem.store('alice', 'paris')
+    mem.store('bob', 'london')
+
+    expect(mem.has('alice')).toBe(true)
+    expect(mem.has('mallory')).toBe(false)
+    expect([...mem.keys()]).toEqual(['alice', 'bob'])
+  })
+
+  it('delete exactly removes a fact and leaves the rest intact', () => {
+    const mem = new HolographicMemory()
+    const facts: Array<[string, string]> = Array.from({ length: 10 }, (_, i) => [
+      `key-${i}`,
+      `value-${i}`,
+    ])
+    for (const [k, v] of facts) mem.store(k, v)
+
+    for (let i = 0; i < 5; i++) expect(mem.delete(`key-${i}`)).toBe(true)
+    expect(mem.delete('never-stored')).toBe(false)
+    expect(mem.size).toBe(5)
+    expect(mem.has('key-0')).toBe(false)
+
+    for (let i = 5; i < 10; i++) {
+      expect(mem.probe(`key-${i}`)!.value, `probe(key-${i})`).toBe(`value-${i}`)
+    }
+  })
+
+  it('deleting the last fact empties the memory', () => {
+    const mem = new HolographicMemory()
+    mem.store('alice', 'paris')
+    expect(mem.delete('alice')).toBe(true)
+    expect(mem.size).toBe(0)
+    expect(mem.probe('alice')).toBeNull()
+  })
+
+  it('probe minConfidence filters out weak matches', () => {
+    const mem = new HolographicMemory()
+    mem.store('alice', 'paris')
+    mem.store('bob', 'london')
+
+    expect(mem.probe('mallory', { minConfidence: 0.3 })).toBeNull()
+    expect(mem.probe('alice', { minConfidence: 0.3 })!.value).toBe('paris')
+  })
+
+  it('probeVector with an encoded key matches probe exactly', () => {
+    const mem = new HolographicMemory()
+    mem.store('alice', 'paris')
+    mem.store('bob', 'london')
+
+    const viaString = mem.probe('alice')!
+    const viaVector = mem.probeVector(encodeAtom('alice', mem.dim))!
+    expect(viaVector.value).toBe(viaString.value)
+    expect(viaVector.confidence).toBe(viaString.confidence)
+  })
+
+  it('probeVector throws on dimension mismatch', () => {
+    const mem = new HolographicMemory(64)
+    mem.store('alice', 'paris')
+    expect(() => mem.probeVector(encodeAtom('alice', 128))).toThrow(RangeError)
   })
 
   it('is deterministic across instances', () => {

@@ -4,6 +4,7 @@ import {
   bind,
   unbind,
   bundle,
+  permute,
   similarity,
   DEFAULT_DIM,
   TWO_PI,
@@ -116,6 +117,13 @@ describe('bind / unbind', () => {
     expect(() => unbind(encodeAtom('x', 64), encodeAtom('y', 128))).toThrow(RangeError)
   })
 
+  it('never emits 2π itself, even when rounding lands exactly on it', () => {
+    // a − b = −5e-17; adding 2π to that rounds to exactly TWO_PI, which a
+    // naive `if (v < 0) v += TWO_PI` would emit, breaking [0, 2π)
+    const out = unbind(new Float64Array([0]), new Float64Array([5e-17]))
+    expect(out[0]).toBe(0)
+  })
+
   it('supports the nested role-filler example from the design doc', () => {
     const alice = encodeAtom('alice')
     const livesIn = encodeAtom('lives_in')
@@ -167,6 +175,13 @@ describe('bundle', () => {
     expect(() => bundle()).toThrow()
   })
 
+  it('never emits 2π itself, even when rounding lands exactly on it', () => {
+    // atan2 of the summed phasors is a tiny negative here; adding 2π to it
+    // rounds to exactly TWO_PI
+    const out = bundle(new Float64Array([1.001e-15]), new Float64Array([6.283185307179585]))
+    expect(out[0]).toBe(0)
+  })
+
   it('throws on dimension mismatch', () => {
     expect(() => bundle(encodeAtom('x', 64), encodeAtom('y', 128))).toThrow(RangeError)
   })
@@ -181,6 +196,47 @@ describe('bundle', () => {
     const simLondon = similarity(recovered, encodeAtom('london'))
     expect(simParis).toBeGreaterThan(0.4)
     expect(simParis).toBeGreaterThan(simLondon + 0.2)
+  })
+})
+
+describe('permute', () => {
+  const a = encodeAtom('a')
+  const b = encodeAtom('b')
+
+  it('defaults to a shift of 1 and returns a fresh array', () => {
+    const p = permute(a)
+    expect(p).not.toBe(a)
+    expect(Array.from(p)).toEqual(Array.from(permute(a, 1)))
+    expect(p[1]).toBe(a[0]!)
+  })
+
+  it('is near-orthogonal to the original', () => {
+    expect(Math.abs(similarity(permute(a), a))).toBeLessThan(0.1)
+  })
+
+  it('is exactly inverted by the opposite shift', () => {
+    expect(Array.from(permute(permute(a, 3), -3))).toEqual(Array.from(a))
+  })
+
+  it('wraps: shifting by the dimension (or 0) is the identity', () => {
+    expect(Array.from(permute(a, a.length))).toEqual(Array.from(a))
+    expect(Array.from(permute(a, 0))).toEqual(Array.from(a))
+  })
+
+  it('preserves similarity', () => {
+    expect(similarity(permute(a, 7), permute(b, 7))).toBeCloseTo(similarity(a, b), 12)
+  })
+
+  it('distinguishes sequence order despite commutative bind', () => {
+    // bind(a, b) === bind(b, a), but tagging the second element with a
+    // permutation makes [a, b] and [b, a] encode differently
+    const ab = bind(a, permute(b))
+    const ba = bind(b, permute(a))
+    expect(Math.abs(similarity(ab, ba))).toBeLessThan(0.1)
+  })
+
+  it('rejects non-integer shifts', () => {
+    expect(() => permute(a, 1.5)).toThrow(RangeError)
   })
 })
 
