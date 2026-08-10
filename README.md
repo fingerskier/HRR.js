@@ -9,6 +9,7 @@ Minimal, deterministic, zero-dependency [Holographic Reduced Representations](ht
 - **Deterministic** — `encodeAtom('alice')` yields the identical vector on every platform, process, and version (SHA-256 derived)
 - **Phase vectors** in `[0, 2π)` — numerically stable, maps cleanly onto cosine similarity
 - **Core algebra** — `bind`, `unbind`, `bundle`, `similarity`
+- **Incremental superposition** — `Superposition` accumulator with weighted add, exact remove, and per-element consensus magnitude
 - **Dual ESM + CJS** with bundled TypeScript types
 - Optional `HolographicMemory` class for superposition + cleanup probing
 
@@ -103,7 +104,31 @@ Inverse of `bind`: elementwise phase subtraction. `unbind(bind(a, b), b) ≈ a` 
 
 Superpose any number of vectors via the elementwise circular mean. The result stays similar to every input (≈ 0.63 for two inputs at dim 1024) while remaining near-orthogonal to everything else. Throws if called with no vectors.
 
-**Not associative:** the circular mean renormalizes, so `bundle(bundle(a, b), c)` gives `c` as much weight as `a` and `b` combined. Superpose everything in one call when facts should carry equal weight — or keep running cos/sin sums, which is exactly what `HolographicMemory` does.
+**Not associative:** the circular mean renormalizes, so `bundle(bundle(a, b), c)` gives `c` as much weight as `a` and `b` combined. Superpose everything in one call when facts should carry equal weight — or accumulate incrementally with [`Superposition`](#new-superpositiondim--1024), which defers the renormalization and matches a single flat `bundle` exactly.
+
+### `new Superposition(dim = 1024)`
+
+The accumulator behind `bundle`, exposed for incremental and weighted superposition. It keeps the running cos/sin sums unreduced, so grouping doesn't matter and the magnitude information `bundle`'s `atan2` discards stays available.
+
+```js
+import { Superposition } from 'hrr-lib'
+
+const s = new Superposition()
+for (const v of stream) s.add(v)   // no need to materialize an array
+s.add(recentFact, 2)               // weighted: recency decay, confidence…
+s.remove(retractedFact)            // exact removal
+const trace = s.toVector()         // ≡ one flat bundle over everything added
+```
+
+| Member | Description |
+| --- | --- |
+| `add(v, weight = 1)` | Add `v` scaled by `weight` — `atan2` of weighted sums is the weighted circular mean. Returns `this` for chaining. |
+| `remove(v, weight = 1)` | Cancel a previous `add(v, weight)` (exact to floating-point rounding). |
+| `toVector()` | Reduce to phases in `[0, 2π)`. Non-destructive, so you can keep accumulating. A fresh or fully cancelled accumulator reduces to the zero vector. |
+| `magnitude` | Per-element `hypot` of the sums — consensus strength, from `0` (phases cancelled) to the number of unit-weight additions (phases identical). |
+| `dim` | Vector dimensionality (readonly). |
+
+`HolographicMemory` keeps its trace as a `Superposition` — this is the same primitive that gives it equal-weight facts and exact overwrite/delete.
 
 ### `permute(v, k = 1): PhaseVector`
 

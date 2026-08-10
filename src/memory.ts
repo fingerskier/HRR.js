@@ -1,6 +1,6 @@
 import {
   DEFAULT_DIM,
-  canonicalPhase,
+  Superposition,
   encodeAtom,
   bind,
   unbind,
@@ -27,9 +27,9 @@ export interface ProbeOptions {
  * into one superposed phase vector, and {@link probe} recovers a value by
  * unbinding the key and cleaning up against the known values.
  *
- * Superposition is kept as running cos/sin sums so all facts carry equal
- * weight and overwriting or deleting a key exactly removes its previous
- * binding.
+ * The trace is a {@link Superposition} accumulator, so all facts carry
+ * equal weight and overwriting or deleting a key exactly removes its
+ * previous binding.
  *
  * Note that the cleanup table already maps keys to values, so for exact
  * string keys `probe` recovers nothing a plain `Map` lookup wouldn't —
@@ -39,18 +39,13 @@ export interface ProbeOptions {
  */
 export class HolographicMemory {
   readonly dim: number
-  private sumCos: Float64Array
-  private sumSin: Float64Array
+  private trace: Superposition
   private facts = new Map<string, string>()
   private atoms = new Map<string, PhaseVector>()
 
   constructor(dim: number = DEFAULT_DIM) {
-    if (!Number.isInteger(dim) || dim <= 0) {
-      throw new RangeError(`dim must be a positive integer, got ${dim}`)
-    }
+    this.trace = new Superposition(dim) // validates dim
     this.dim = dim
-    this.sumCos = new Float64Array(dim)
-    this.sumSin = new Float64Array(dim)
   }
 
   /** Number of stored facts. */
@@ -62,9 +57,9 @@ export class HolographicMemory {
   store(key: string, value: string): void {
     const previous = this.facts.get(key)
     if (previous !== undefined) {
-      this.accumulate(this.boundVector(key, previous), -1)
+      this.trace.remove(this.boundVector(key, previous))
     }
-    this.accumulate(this.boundVector(key, value), +1)
+    this.trace.add(this.boundVector(key, value))
     this.facts.set(key, value)
   }
 
@@ -85,7 +80,7 @@ export class HolographicMemory {
   delete(key: string): boolean {
     const value = this.facts.get(key)
     if (value === undefined) return false
-    this.accumulate(this.boundVector(key, value), -1)
+    this.trace.remove(this.boundVector(key, value))
     this.facts.delete(key)
     return true
   }
@@ -108,7 +103,7 @@ export class HolographicMemory {
   probeVector(key: PhaseVector, options?: ProbeOptions): ProbeResult | null {
     if (this.facts.size === 0) return null
 
-    const recovered = unbind(this.trace(), key)
+    const recovered = unbind(this.trace.toVector(), key)
 
     let best: string | null = null
     let bestSim = -Infinity
@@ -128,8 +123,7 @@ export class HolographicMemory {
 
   /** Remove all stored facts. */
   clear(): void {
-    this.sumCos.fill(0)
-    this.sumSin.fill(0)
+    this.trace = new Superposition(this.dim)
     this.facts.clear()
     this.atoms.clear()
   }
@@ -146,21 +140,5 @@ export class HolographicMemory {
 
   private boundVector(key: string, value: string): PhaseVector {
     return bind(this.atom(key), this.atom(value))
-  }
-
-  private accumulate(v: PhaseVector, sign: 1 | -1): void {
-    for (let i = 0; i < this.dim; i++) {
-      this.sumCos[i] = this.sumCos[i]! + sign * Math.cos(v[i]!)
-      this.sumSin[i] = this.sumSin[i]! + sign * Math.sin(v[i]!)
-    }
-  }
-
-  /** Current superposition as a phase vector (circular mean of the sums). */
-  private trace(): PhaseVector {
-    const out = new Float64Array(this.dim)
-    for (let i = 0; i < this.dim; i++) {
-      out[i] = canonicalPhase(Math.atan2(this.sumSin[i]!, this.sumCos[i]!))
-    }
-    return out
   }
 }

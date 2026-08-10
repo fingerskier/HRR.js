@@ -7,6 +7,7 @@ export {
   bundle,
   permute,
   similarity,
+  Superposition,
   type PhaseVector,
 } from './hrr.js'
 

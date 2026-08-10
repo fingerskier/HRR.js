@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- New: `Superposition` — the incremental accumulator behind `bundle`, now public (#3). `add(v, weight?)` / `remove(v, weight?)` / `toVector()` / `magnitude`: streaming and weighted superposition, exact removal, and per-element consensus strength that `bundle`'s `atan2` used to discard. However additions are grouped, `toVector()` matches a single flat `bundle` exactly — the fix for `bundle`'s non-associativity.
+- `bundle` is now a thin wrapper over `Superposition` (bit-identical results).
+- `HolographicMemory` refactored onto `Superposition`; no behavior change.
+
 ## 0.2.0
 
 - **Renamed on npm to `hrr-lib`** — the registry rejected `hrr.js` as too similar to an existing package. The repository remains HRR.js; README, badge, and CI now reference the published name.
