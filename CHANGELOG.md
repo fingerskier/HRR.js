@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
 - New: `Superposition` — the incremental accumulator behind `bundle`, now public (#3). `add(v, weight?)` / `remove(v, weight?)` / `toVector()` / `magnitude`: streaming and weighted superposition, exact removal, and per-element consensus strength that `bundle`'s `atan2` used to discard. However additions are grouped, `toVector()` matches a single flat `bundle` exactly — the fix for `bundle`'s non-associativity.
 - `bundle` is now a thin wrapper over `Superposition` (bit-identical results).
