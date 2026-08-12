@@ -113,11 +113,24 @@ export function mountSuperposition(root: HTMLElement, store: Store): void {
     }
 
     queueMicrotask(() => {
+      // An empty accumulator reduces to phase 0 in every component, which
+      // paints as a solid band of one colour — indistinguishable from a real
+      // vector. Leave the canvases blank until something has been added.
+      if (added === 0) {
+        fitCanvas(strip, 34)
+        fitCanvas(magnitudeCanvas, 22)
+        const ctx = fitCanvas(dial, 220)
+        ctx.fillStyle = '#9aa3b2'
+        ctx.font = '13px ui-sans-serif, system-ui, sans-serif'
+        ctx.fillText('Add a vector to see consensus.', 4, 24)
+        readout.textContent = 'add a vector to see consensus'
+        return
+      }
+
       const reduced = accumulator.toVector()
       drawStrip(strip, reduced)
       drawMagnitude(accumulator.magnitude)
       drawDial(dial, reduced, { magnitude: accumulator.magnitude })
-      if (added === 0) readout.textContent = 'add a vector to see consensus'
     })
   }
 
