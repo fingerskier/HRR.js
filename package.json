@@ -1,5 +1,5 @@
 {
-  "name": "hrr.js",
+  "name": "hrr-lib",
   "version": "0.1.0",
   "description": "Holographic Reduced Representations — minimal, deterministic, zero-dependency phase-vector HRR for Node and edge runtimes",
   "keywords": [

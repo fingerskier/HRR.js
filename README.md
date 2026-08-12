@@ -1,7 +1,7 @@
 # HRR.js
 
 [![CI](https://github.com/fingerskier/HRR.js/actions/workflows/ci.yml/badge.svg)](https://github.com/fingerskier/HRR.js/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/hrr.js.svg)](https://www.npmjs.com/package/hrr.js)
+[![npm](https://img.shields.io/npm/v/hrr-lib.svg)](https://www.npmjs.com/package/hrr-lib)
 
 Minimal, deterministic, zero-dependency [Holographic Reduced Representations](https://en.wikipedia.org/wiki/Holographic_Reduced_Representation) for Node and edge runtimes, built on phase vectors.
 
@@ -15,7 +15,7 @@ Minimal, deterministic, zero-dependency [Holographic Reduced Representations](ht
 ## Install
 
 ```sh
-npm install hrr.js
+npm install hrr-lib
 ```
 
 Requires Node ≥ 18 (or any runtime with `node:crypto` support, e.g. Cloudflare Workers with `nodejs_compat`).
@@ -23,8 +23,8 @@ Requires Node ≥ 18 (or any runtime with `node:crypto` support, e.g. Cloudflare
 ## Quick start
 
 ```js
-import { encodeAtom, bind, unbind, similarity } from 'hrr.js'
-// CJS also works: const { encodeAtom, bind, unbind, similarity } = require('hrr.js')
+import { encodeAtom, bind, unbind, similarity } from 'hrr-lib'
+// CJS also works: const { encodeAtom, bind, unbind, similarity } = require('hrr-lib')
 
 const alice = encodeAtom('alice')
 const livesIn = encodeAtom('lives_in')
@@ -43,7 +43,7 @@ similarity(recovered, encodeAtom('london')) // ≈ 0.0
 ### Holographic memory
 
 ```js
-import { HolographicMemory } from 'hrr.js'
+import { HolographicMemory } from 'hrr-lib'
 
 const mem = new HolographicMemory() // dim 1024 by default
 
