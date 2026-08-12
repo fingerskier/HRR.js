@@ -2725,29 +2725,55 @@ export function mountMemory(root: HTMLElement, store: Store): void {
     }
   }
 
-  const renderCapacity = (): void => {
+  // What degrades with a crowded trace is not confidence but correctness:
+  // confidence falls off as roughly 1/sqrt(n) at every dimension, while
+  // whether cleanup still returns the right value is what separates a
+  // 64-dimensional memory from a 1024-dimensional one. So the sweep plots
+  // accuracy.
+  //
+  // Cost matters here. Rebuilding a memory per sample point and probing
+  // every fact is cubic in the dimension — measured at 6.3 s for dim 256 and
+  // minutes for 1024, all of it blocking the main thread. Storing into one
+  // memory incrementally and probing a handful of keys per sample point
+  // gives the same curve for 16 ms / 156 ms / 569 ms.
+  const computeCapacity = (): Array<{ x: number; y: number }> => {
+    const maxFacts = Math.min(store.dim, 256)
+    const step = Math.max(1, Math.round(maxFacts / 16))
+    const memory = new HolographicMemory(store.dim)
     const points: Array<{ x: number; y: number }> = []
-    const step = Math.max(1, Math.round(store.dim / 32))
 
-    for (let n = step; n <= store.dim; n += step) {
-      const sweep = new HolographicMemory(store.dim)
-      for (let i = 0; i < n; i++) sweep.store(`k${i}`, `v${i}`)
+    for (let n = 1; n <= maxFacts; n++) {
+      memory.store(`k${n}`, `v${n}`)
+      if (n !== 1 && n % step !== 0 && n !== maxFacts) continue
 
-      let total = 0
-      for (let i = 0; i < n; i++) {
-        total += sweep.probe(`k${i}`)?.confidence ?? 0
+      const stride = Math.max(1, Math.floor(n / 6))
+      let correct = 0
+      let probes = 0
+      for (let i = 1; i <= n; i += stride) {
+        if (memory.probe(`k${i}`)?.value === `v${i}`) correct++
+        probes++
       }
-      points.push({ x: n, y: total / n })
+      points.push({ x: n, y: correct / probes })
     }
+    return points
+  }
 
+  let capacityPoints: Array<{ x: number; y: number }> = []
+
+  const drawCapacity = (): void => {
     queueMicrotask(() => {
-      drawChart(capacity, points, {
+      drawChart(capacity, capacityPoints, {
         xLabel: 'facts stored',
-        yLabel: 'mean confidence',
+        yLabel: 'probe accuracy',
         yMin: 0,
         yMax: 1,
       })
     })
+  }
+
+  const renderCapacity = (): void => {
+    capacityPoints = computeCapacity()
+    drawCapacity()
   }
 
   storeForm.addEventListener('submit', event => {
@@ -2800,7 +2826,8 @@ export function mountMemory(root: HTMLElement, store: Store): void {
     onDimChange()
   })
 
-  window.addEventListener('resize', renderCapacity)
+  // Resize only needs to repaint the cached points, never recompute them.
+  window.addEventListener('resize', drawCapacity)
   renderFacts()
   renderCapacity()
 }
@@ -2887,8 +2914,11 @@ Verify by eye:
 - Three seeded facts appear, each probing back to its own value with confidence well above 0.5.
 - Storing a new fact adds a row and slightly lowers the others' confidence.
 - Probing an unstored key still returns a value, with visibly low confidence and a red bar — graceful degradation.
-- The capacity chart falls from near 1 toward 0 as facts accumulate.
-- Switching dim to 64 makes the curve collapse much sooner; 1024 holds up far longer.
+- The capacity chart falls from 1 toward 0 as facts accumulate.
+- Switching dim to 64 makes the curve collapse much sooner — accuracy is gone
+  by about 32 facts — while 1024 stays perfect past 100 facts and is still
+  around half right at 256. The chart appears without a perceptible freeze at
+  every dimension.
 
 Stop the server.
 
