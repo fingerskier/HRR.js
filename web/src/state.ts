@@ -97,7 +97,7 @@ export class Store {
     }
     this.#entries.set(name, entry)
     this.#emit()
-    return entry
+    return this.#exposed(entry)
   }
 
   /** Evaluate `expression` and store the vector it produces under `name`. */
@@ -124,7 +124,7 @@ export class Store {
     }
     this.#entries.set(name, entry)
     this.#emit()
-    return entry
+    return this.#exposed(entry)
   }
 
   /**

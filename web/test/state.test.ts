@@ -207,6 +207,26 @@ describe('Store', () => {
     expect(calls).toEqual(['a'])
   })
 
+  it('protects the store from a caller mutating the vector returned by addAtom, addDerived, or submit', () => {
+    const store = new Store()
+    store.addAtom('role')
+
+    const dog = store.addAtom('dog')
+    dog.vector[0] = 999999
+    expect(store.get('dog')!.vector[0]).not.toBe(999999)
+    expect(Array.from(store.get('dog')!.vector)).toEqual(
+      Array.from(encodeAtom('dog', 256)),
+    )
+
+    const pet = store.addDerived('pet', 'bind(dog, role)')
+    pet.vector[0] = 999999
+    expect(store.get('pet')!.vector[0]).not.toBe(999999)
+
+    const submitted = store.submit('bind(role, dog)')
+    submitted.vector[0] = 999999
+    expect(store.get(submitted.name)!.vector[0]).not.toBe(999999)
+  })
+
   it('reset empties entries, keeps the dimension, and lets auto names restart cleanly', () => {
     const store = new Store()
     store.setDim(64)
