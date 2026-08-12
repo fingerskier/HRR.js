@@ -713,9 +713,13 @@ describe('evaluate', () => {
   })
 
   it('bundles a variable number of arguments', () => {
+    // A three-way bundle sits around 0.53 from each member asymptotically, but
+    // at dim 64 sampling noise drags it as low as 0.40. Unrelated atoms at this
+    // dimension reach |0.13|, so 0.3 separates signal from noise with room to
+    // spare.
     const blend = vec('bundle(dog, cat, role)')
-    expect(similarity(blend, env.get('dog')!)).toBeGreaterThan(0.4)
-    expect(similarity(blend, env.get('cat')!)).toBeGreaterThan(0.4)
+    expect(similarity(blend, env.get('dog')!)).toBeGreaterThan(0.3)
+    expect(similarity(blend, env.get('cat')!)).toBeGreaterThan(0.3)
   })
 
   it('permutes by an integer shift and back again', () => {
