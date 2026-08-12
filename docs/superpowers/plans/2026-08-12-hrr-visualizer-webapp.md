@@ -3020,6 +3020,12 @@ export function mountSuperposition(root: HTMLElement, store: Store): void {
   }
 
   const render = (): void => {
+    // Drop contributions whose vector has left the shelf BEFORE drawing
+    // anything. Filtering afterwards leaves the discarded chips on screen for
+    // one render, and their remove buttons then index into a shorter array —
+    // clicking one deletes a different contribution.
+    contributions = contributions.filter(c => store.get(c.name) !== undefined)
+
     select.replaceChildren()
     for (const entry of store.entries) {
       const option = document.createElement('option')
@@ -3029,14 +3035,17 @@ export function mountSuperposition(root: HTMLElement, store: Store): void {
     }
 
     list.replaceChildren()
-    for (const [index, contribution] of contributions.entries()) {
+    for (const contribution of contributions) {
       const item = document.createElement('li')
       item.textContent = `${contribution.name} × ${contribution.weight}`
       const remove = document.createElement('button')
       remove.type = 'button'
       remove.textContent = '×'
       remove.addEventListener('click', () => {
-        contributions.splice(index, 1)
+        // Locate by identity, never by a captured index: the array is
+        // rebuilt underneath these handlers.
+        const at = contributions.indexOf(contribution)
+        if (at !== -1) contributions.splice(at, 1)
         render()
       })
       item.append(remove)
@@ -3051,9 +3060,6 @@ export function mountSuperposition(root: HTMLElement, store: Store): void {
       accumulator.add(entry.vector, contribution.weight)
       added++
     }
-
-    // Drop contributions whose vector has since been removed from the shelf.
-    contributions = contributions.filter(c => store.get(c.name) !== undefined)
 
     queueMicrotask(() => {
       const reduced = accumulator.toVector()
