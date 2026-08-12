@@ -5,8 +5,10 @@ export {
   bind,
   unbind,
   bundle,
+  permute,
   similarity,
+  Superposition,
   type PhaseVector,
 } from './hrr.js'
 
-export { HolographicMemory, type ProbeResult } from './memory.js'
+export { HolographicMemory, type ProbeResult, type ProbeOptions } from './memory.js'

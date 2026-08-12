@@ -9,6 +9,7 @@ Minimal, deterministic, zero-dependency [Holographic Reduced Representations](ht
 - **Deterministic** — `encodeAtom('alice')` yields the identical vector on every platform, process, and version (SHA-256 derived)
 - **Phase vectors** in `[0, 2π)` — numerically stable, maps cleanly onto cosine similarity
 - **Core algebra** — `bind`, `unbind`, `bundle`, `similarity`
+- **Incremental superposition** — `Superposition` accumulator with weighted add, exact remove, and per-element consensus magnitude
 - **Dual ESM + CJS** with bundled TypeScript types
 - Optional `HolographicMemory` class for superposition + cleanup probing
 
@@ -17,6 +18,8 @@ Minimal, deterministic, zero-dependency [Holographic Reduced Representations](ht
 ```sh
 npm install hrr-lib
 ```
+
+> The package is published as **`hrr-lib`** — the npm registry rejected `hrr.js` as too similar to an existing package name. The repository keeps the HRR.js name.
 
 Requires Node ≥ 18 (or any runtime with `node:crypto` support, e.g. Cloudflare Workers with `nodejs_compat`).
 
@@ -40,6 +43,24 @@ similarity(recovered, paris)              // ≈ 1.0
 similarity(recovered, encodeAtom('london')) // ≈ 0.0
 ```
 
+### Direction and order
+
+`bind` is commutative and associative, so the fact above is a symmetric product of all three atoms — *"alice lives_in paris"* and *"paris lives_in alice"* encode to the **identical** vector. (Classical HRR shares this property; circular convolution is commutative too.) When direction matters, bundle role-filler pairs instead:
+
+```js
+import { bundle } from 'hrr-lib'
+
+const fact = bundle(
+  bind(encodeAtom('subject'), alice),
+  bind(encodeAtom('verb'), livesIn),
+  bind(encodeAtom('object'), paris),
+)
+
+unbind(fact, encodeAtom('object'))  // ≈ paris (≈ 0.57 similarity; cleanup picks it)
+```
+
+For ordered sequences, tag positions with `permute` (cyclic shift): `bind(a, permute(b))` distinguishes `[a, b]` from `[b, a]`, and `permute(v, k)` marks position `k`.
+
 ### Holographic memory
 
 ```js
@@ -56,6 +77,9 @@ mem.probe('bob')
 
 mem.probe('mallory')
 // → { value: ..., confidence: ≈0 }  (low confidence = no such fact)
+
+mem.probe('mallory', { minConfidence: 0.3 })
+// → null
 ```
 
 All facts share **one** superposed trace vector; `probe` unbinds the key and cleans up the result against the known values. Confidence degrades gracefully as the trace fills — dim 1024 comfortably holds ~10 facts with reliable recall.
@@ -80,6 +104,36 @@ Inverse of `bind`: elementwise phase subtraction. `unbind(bind(a, b), b) ≈ a` 
 
 Superpose any number of vectors via the elementwise circular mean. The result stays similar to every input (≈ 0.63 for two inputs at dim 1024) while remaining near-orthogonal to everything else. Throws if called with no vectors.
 
+**Not associative:** the circular mean renormalizes, so `bundle(bundle(a, b), c)` gives `c` as much weight as `a` and `b` combined. Superpose everything in one call when facts should carry equal weight — or accumulate incrementally with [`Superposition`](#new-superpositiondim--1024), which defers the renormalization and matches a single flat `bundle` exactly.
+
+### `new Superposition(dim = 1024)`
+
+The accumulator behind `bundle`, exposed for incremental and weighted superposition. It keeps the running cos/sin sums unreduced, so grouping doesn't matter and the magnitude information `bundle`'s `atan2` discards stays available.
+
+```js
+import { Superposition } from 'hrr-lib'
+
+const s = new Superposition()
+for (const v of stream) s.add(v)   // no need to materialize an array
+s.add(recentFact, 2)               // weighted: recency decay, confidence…
+s.remove(retractedFact)            // exact removal
+const trace = s.toVector()         // ≡ one flat bundle over everything added
+```
+
+| Member | Description |
+| --- | --- |
+| `add(v, weight = 1)` | Add `v` scaled by `weight` — `atan2` of weighted sums is the weighted circular mean. Returns `this` for chaining. |
+| `remove(v, weight = 1)` | Cancel a previous `add(v, weight)` (exact to floating-point rounding). |
+| `toVector()` | Reduce to phases in `[0, 2π)`. Non-destructive, so you can keep accumulating. A fresh or fully cancelled accumulator reduces to the zero vector. |
+| `magnitude` | Per-element `hypot` of the sums — consensus strength, from `0` (phases cancelled) to the number of unit-weight additions (phases identical). |
+| `dim` | Vector dimensionality (readonly). |
+
+`HolographicMemory` keeps its trace as a `Superposition` — this is the same primitive that gives it equal-weight facts and exact overwrite/delete.
+
+### `permute(v, k = 1): PhaseVector`
+
+Cyclically shift components by `k` positions (negative `k` inverts: `permute(permute(v, k), -k)` restores `v` exactly). Permutation preserves similarity and yields a vector near-orthogonal to the original — the standard tool for encoding order on top of commutative `bind`.
+
 ### `similarity(a, b): number`
 
 Mean cosine of the phase differences — cosine similarity of the corresponding complex unit vectors. `1` for identical vectors, `≈ 0` for unrelated atoms, bounded in `[-1, 1]`.
@@ -89,10 +143,15 @@ Mean cosine of the phase differences — cosine similarity of the corresponding 
 | Member | Description |
 | --- | --- |
 | `store(key, value)` | Bind `key`→`value` and add the pair to the single superposed trace. Re-storing a key exactly replaces its previous binding. |
-| `probe(key)` | `{ value, confidence } \| null` — best cleanup match for the unbound trace, `null` when empty. |
+| `probe(key, options?)` | `{ value, confidence } \| null` — best cleanup match for the unbound trace, `null` when empty or below `options.minConfidence`. |
+| `probeVector(vec, options?)` | Same cleanup, but probes with a raw key vector — e.g. one composed with `bind`/`bundle` that never existed as a stored string. |
+| `has(key)` / `keys()` | Key membership / iterator over stored keys. |
+| `delete(key)` | Exactly subtract the key's binding from the trace; returns whether it existed. |
 | `size` | Number of stored facts. |
-| `clear()` | Reset the trace and fact table. |
+| `clear()` | Reset the trace, fact table, and atom cache. |
 | `dim` | Vector dimensionality (readonly). |
+
+Encoded atoms are cached per instance, so repeated stores and probes don't re-hash. Note that for exact string keys `probe` recovers nothing the internal key→value cleanup table doesn't already hold — the trace demonstrates the algebra (graceful degradation, capacity) and earns its keep when probing with `probeVector` and composed keys.
 
 ### Constants
 

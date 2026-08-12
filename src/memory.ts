@@ -1,6 +1,6 @@
 import {
   DEFAULT_DIM,
-  TWO_PI,
+  Superposition,
   encodeAtom,
   bind,
   unbind,
@@ -16,27 +16,36 @@ export interface ProbeResult {
   confidence: number
 }
 
+/** Options for {@link HolographicMemory.probe}. */
+export interface ProbeOptions {
+  /** Return null instead of a match whose confidence is below this. */
+  minConfidence?: number
+}
+
 /**
  * A single-trace holographic memory: every stored key→value pair is bound
  * into one superposed phase vector, and {@link probe} recovers a value by
  * unbinding the key and cleaning up against the known values.
  *
- * Superposition is kept as running cos/sin sums so all facts carry equal
- * weight and overwriting a key exactly removes its previous binding.
+ * The trace is a {@link Superposition} accumulator, so all facts carry
+ * equal weight and overwriting or deleting a key exactly removes its
+ * previous binding.
+ *
+ * Note that the cleanup table already maps keys to values, so for exact
+ * string keys `probe` recovers nothing a plain `Map` lookup wouldn't —
+ * the trace demonstrates the algebra and its graceful degradation. Where
+ * the vector machinery earns its keep is {@link probeVector}, which
+ * accepts composed key vectors that never existed as stored strings.
  */
 export class HolographicMemory {
   readonly dim: number
-  private sumCos: Float64Array
-  private sumSin: Float64Array
+  private trace: Superposition
   private facts = new Map<string, string>()
+  private atoms = new Map<string, PhaseVector>()
 
   constructor(dim: number = DEFAULT_DIM) {
-    if (!Number.isInteger(dim) || dim <= 0) {
-      throw new RangeError(`dim must be a positive integer, got ${dim}`)
-    }
+    this.trace = new Superposition(dim) // validates dim
     this.dim = dim
-    this.sumCos = new Float64Array(dim)
-    this.sumSin = new Float64Array(dim)
   }
 
   /** Number of stored facts. */
@@ -48,59 +57,88 @@ export class HolographicMemory {
   store(key: string, value: string): void {
     const previous = this.facts.get(key)
     if (previous !== undefined) {
-      this.accumulate(this.boundVector(key, previous), -1)
+      this.trace.remove(this.boundVector(key, previous))
     }
-    this.accumulate(this.boundVector(key, value), +1)
+    this.trace.add(this.boundVector(key, value))
     this.facts.set(key, value)
+  }
+
+  /** Whether a fact is stored under `key`. */
+  has(key: string): boolean {
+    return this.facts.has(key)
+  }
+
+  /** Iterate over the stored keys. */
+  keys(): IterableIterator<string> {
+    return this.facts.keys()
+  }
+
+  /**
+   * Remove the fact stored under `key`, exactly subtracting its binding
+   * from the superposition. Returns whether the key was present.
+   */
+  delete(key: string): boolean {
+    const value = this.facts.get(key)
+    if (value === undefined) return false
+    this.trace.remove(this.boundVector(key, value))
+    this.facts.delete(key)
+    return true
   }
 
   /**
    * Recover the value bound to `key`. Returns the best cleanup match among
-   * all stored values with its similarity, or null if the memory is empty.
+   * all stored values with its similarity, or null if the memory is empty
+   * (or the match falls below `options.minConfidence`).
    */
-  probe(key: string): ProbeResult | null {
+  probe(key: string, options?: ProbeOptions): ProbeResult | null {
+    if (this.facts.size === 0) return null
+    return this.probeVector(this.atom(key), options)
+  }
+
+  /**
+   * Recover the value bound to an arbitrary key vector — e.g. one composed
+   * with `bind`/`bundle` rather than encoded from a stored string. Same
+   * cleanup and options as {@link probe}.
+   */
+  probeVector(key: PhaseVector, options?: ProbeOptions): ProbeResult | null {
     if (this.facts.size === 0) return null
 
-    const recovered = unbind(this.trace(), encodeAtom(key, this.dim))
+    const recovered = unbind(this.trace.toVector(), key)
 
     let best: string | null = null
     let bestSim = -Infinity
     for (const value of new Set(this.facts.values())) {
-      const s = similarity(recovered, encodeAtom(value, this.dim))
+      const s = similarity(recovered, this.atom(value))
       if (s > bestSim) {
         bestSim = s
         best = value
       }
     }
-    return best === null ? null : { value: best, confidence: bestSim }
+    if (best === null) return null
+    if (options?.minConfidence !== undefined && bestSim < options.minConfidence) {
+      return null
+    }
+    return { value: best, confidence: bestSim }
   }
 
   /** Remove all stored facts. */
   clear(): void {
-    this.sumCos.fill(0)
-    this.sumSin.fill(0)
+    this.trace = new Superposition(this.dim)
     this.facts.clear()
+    this.atoms.clear()
+  }
+
+  /** Encode a label at this memory's dim, caching the (deterministic) result. */
+  private atom(label: string): PhaseVector {
+    let v = this.atoms.get(label)
+    if (v === undefined) {
+      v = encodeAtom(label, this.dim)
+      this.atoms.set(label, v)
+    }
+    return v
   }
 
   private boundVector(key: string, value: string): PhaseVector {
-    return bind(encodeAtom(key, this.dim), encodeAtom(value, this.dim))
-  }
-
-  private accumulate(v: PhaseVector, sign: 1 | -1): void {
-    for (let i = 0; i < this.dim; i++) {
-      this.sumCos[i] = this.sumCos[i]! + sign * Math.cos(v[i]!)
-      this.sumSin[i] = this.sumSin[i]! + sign * Math.sin(v[i]!)
-    }
-  }
-
-  /** Current superposition as a phase vector (circular mean of the sums). */
-  private trace(): PhaseVector {
-    const out = new Float64Array(this.dim)
-    for (let i = 0; i < this.dim; i++) {
-      let phase = Math.atan2(this.sumSin[i]!, this.sumCos[i]!)
-      if (phase < 0) phase += TWO_PI
-      out[i] = phase
-    }
-    return out
+    return bind(this.atom(key), this.atom(value))
   }
 }

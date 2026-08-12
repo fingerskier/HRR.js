@@ -26,6 +26,6 @@ jobs:
           npm pack --pack-destination /tmp
           mkdir -p /tmp/pkgtest && cd /tmp/pkgtest
           npm init -y
-          npm install /tmp/hrr.js-*.tgz
-          node --input-type=module -e "import { encodeAtom, similarity } from 'hrr.js'; if (similarity(encodeAtom('x'), encodeAtom('x')) !== 1) process.exit(1)"
-          node -e "const { encodeAtom, similarity } = require('hrr.js'); if (similarity(encodeAtom('x'), encodeAtom('x')) !== 1) process.exit(1)"
+          npm install /tmp/hrr-lib-*.tgz
+          node --input-type=module -e "import { encodeAtom, similarity } from 'hrr-lib'; if (similarity(encodeAtom('x'), encodeAtom('x')) !== 1) process.exit(1)"
+          node -e "const { encodeAtom, similarity } = require('hrr-lib'); if (similarity(encodeAtom('x'), encodeAtom('x')) !== 1) process.exit(1)"
