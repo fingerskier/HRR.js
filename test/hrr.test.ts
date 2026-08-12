@@ -72,6 +72,31 @@ describe('encodeAtom', () => {
     expect(() => encodeAtom('alice', -8)).toThrow(RangeError)
     expect(() => encodeAtom('alice', 1.5)).toThrow(RangeError)
   })
+
+  it('matches golden vectors captured from the original implementation', () => {
+    expect(Array.from(encodeAtom('dog', 8))).toEqual([
+      1.0467501401334645, 1.4648557786315444, 0.4065049087896949,
+      5.537287149070194, 2.9833050110398434, 2.0945548920586003,
+      1.5598667136812114, 3.0531011368886403,
+    ])
+
+    // A dim that is not a multiple of 16 stops mid-digest.
+    expect(Array.from(encodeAtom('cat', 3))).toEqual([
+      4.73089262363856, 3.081767402862253, 1.8381883528832124,
+    ])
+
+    // Non-ASCII labels must hash as UTF-8, as node:crypto did by default.
+    expect(Array.from(encodeAtom('café ☕', 4))).toEqual([
+      6.221346706667946, 1.0755122799063201, 1.1806858376757294,
+      4.992340474173819,
+    ])
+
+    // A label long enough to span multiple hash blocks.
+    expect(Array.from(encodeAtom('x'.repeat(200), 20)).slice(0, 4)).toEqual([
+      3.736010208895479, 0.3452415510735121, 1.8594723363151258,
+      0.9688047413490253,
+    ])
+  })
 })
 
 describe('bind / unbind', () => {
