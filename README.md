@@ -3,9 +3,9 @@
 [![CI](https://github.com/fingerskier/HRR.js/actions/workflows/ci.yml/badge.svg)](https://github.com/fingerskier/HRR.js/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/hrr-lib.svg)](https://www.npmjs.com/package/hrr-lib)
 
-Minimal, deterministic, zero-dependency [Holographic Reduced Representations](https://en.wikipedia.org/wiki/Holographic_Reduced_Representation) for Node and edge runtimes, built on phase vectors.
+Minimal, deterministic, zero-dependency [Holographic Reduced Representations](https://en.wikipedia.org/wiki/Holographic_Reduced_Representation) for Node, browsers, and edge runtimes, built on phase vectors.
 
-- **Zero runtime dependencies** — only Node's built-in `crypto`
+- **Zero runtime dependencies** — no Node builtins, no polyfills; the bundled SHA-256 is pure TypeScript
 - **Deterministic** — `encodeAtom('alice')` yields the identical vector on every platform, process, and version (SHA-256 derived)
 - **Phase vectors** in `[0, 2π)` — numerically stable, maps cleanly onto cosine similarity
 - **Core algebra** — `bind`, `unbind`, `bundle`, `similarity`
@@ -21,7 +21,7 @@ npm install hrr-lib
 
 > The package is published as **`hrr-lib`** — the npm registry rejected `hrr.js` as too similar to an existing package name. The repository keeps the HRR.js name.
 
-Requires Node ≥ 18 (or any runtime with `node:crypto` support, e.g. Cloudflare Workers with `nodejs_compat`).
+Runs anywhere modern JavaScript runs: Node ≥ 18, browsers, and edge runtimes (e.g. Cloudflare Workers) — no Node builtins required.
 
 ## Quick start
 
