@@ -1,4 +1,6 @@
-import { createHash } from 'node:crypto'
+import { sha256 } from './sha256.js'
+
+const utf8 = new TextEncoder()
 
 /** Full circle in radians; phases live in [0, 2π). */
 export const TWO_PI = 2 * Math.PI
@@ -31,8 +33,9 @@ export function canonicalPhase(v: number): number {
  *
  * Phases are derived from SHA-256 of `${label}:${counter}` — each 32-byte
  * digest is read as 16 little-endian uint16s scaled onto [0, 2π), with the
- * counter incremented until `dim` phases are produced. The same label yields
- * the same vector on every platform and version.
+ * counter incremented until `dim` phases are produced. The hash is computed
+ * in pure JavaScript, so the same label yields the same vector in every
+ * runtime — Node, browsers, and edge workers alike.
  */
 export function encodeAtom(label: string, dim: number = DEFAULT_DIM): PhaseVector {
   if (!Number.isInteger(dim) || dim <= 0) {
@@ -44,9 +47,10 @@ export function encodeAtom(label: string, dim: number = DEFAULT_DIM): PhaseVecto
   let counter = 0
 
   while (i < dim) {
-    const hash = createHash('sha256').update(`${label}:${counter}`).digest()
+    const hash = sha256(utf8.encode(`${label}:${counter}`))
+    const view = new DataView(hash.buffer, hash.byteOffset, hash.byteLength)
     for (let j = 0; j < 16 && i < dim; j++, i++) {
-      const uint16 = hash.readUInt16LE(j * 2)
+      const uint16 = view.getUint16(j * 2, true)
       phases[i] = (uint16 / 65536) * TWO_PI
     }
     counter++

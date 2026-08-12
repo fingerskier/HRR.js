@@ -29,3 +29,9 @@ jobs:
           npm install /tmp/hrr-lib-*.tgz
           node --input-type=module -e "import { encodeAtom, similarity } from 'hrr-lib'; if (similarity(encodeAtom('x'), encodeAtom('x')) !== 1) process.exit(1)"
           node -e "const { encodeAtom, similarity } = require('hrr-lib'); if (similarity(encodeAtom('x'), encodeAtom('x')) !== 1) process.exit(1)"
+      - name: Verify the bundle has no Node builtins
+        run: |
+          if grep -rn "node:" dist/; then
+            echo "dist still references a Node builtin" >&2
+            exit 1
+          fi

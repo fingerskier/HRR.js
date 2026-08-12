@@ -8,5 +8,4 @@ export default defineConfig({
   clean: true,
   target: 'es2022',
   platform: 'neutral',
-  external: ['node:crypto'],
 })

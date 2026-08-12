@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0
+
+### Changed
+
+- `encodeAtom` now hashes with a bundled pure-TypeScript SHA-256 instead of
+  `node:crypto`. Output is byte-identical — pinned by golden vectors — but the
+  package no longer imports any Node builtin, so it runs unchanged in browsers
+  and edge runtimes.
+
 ## 0.3.0
 
 - New: `Superposition` — the incremental accumulator behind `bundle`, now public (#3). `add(v, weight?)` / `remove(v, weight?)` / `toVector()` / `magnitude`: streaming and weighted superposition, exact removal, and per-element consensus strength that `bundle`'s `atan2` used to discard. However additions are grouped, `toVector()` matches a single flat `bundle` exactly — the fix for `bundle`'s non-associativity.
