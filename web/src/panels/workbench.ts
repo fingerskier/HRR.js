@@ -1,3 +1,4 @@
+import { ExprError, splitAssignment } from '../expr.js'
 import type { Entry, Store } from '../state.js'
 import { drawDial } from '../viz/dial.js'
 import { drawScatter } from '../viz/scatter.js'
@@ -64,14 +65,39 @@ export function mountWorkbench(root: HTMLElement, store: Store): void {
     if (line === '') return
 
     try {
-      // A bare similarity call yields a number; anything else yields a vector.
-      try {
-        const scalar = store.submitScalar(line)
-        result.textContent = `= ${scalar.toFixed(6)}`
-      } catch {
-        const entry = store.submit(line)
-        result.textContent = `stored ${entry.name}`
+      const { name, expression } = splitAssignment(line)
+
+      if (name === null) {
+        // A bare expression: a scalar just prints, anything else yields a
+        // vector and gets an automatic name and a row.
+        try {
+          const scalar = store.submitScalar(line)
+          result.textContent = `= ${scalar.toFixed(6)}`
+        } catch {
+          const entry = store.submit(line)
+          result.textContent = `stored ${entry.name}`
+        }
+        input.value = ''
+        return
       }
+
+      // A named assignment must produce a vector — a scalar result has
+      // nothing to store under that name. Check before storing so this is
+      // reported instead of silently discarded.
+      let isScalar = true
+      try {
+        store.submitScalar(line)
+      } catch {
+        isScalar = false
+      }
+      if (isScalar) {
+        throw new ExprError(
+          `${expression} yields a number, not a vector — there is nothing to store under "${name}"`,
+        )
+      }
+
+      const entry = store.submit(line)
+      result.textContent = `stored ${entry.name}`
       input.value = ''
     } catch (e) {
       error.textContent = e instanceof Error ? e.message : String(e)
@@ -143,6 +169,11 @@ export function mountWorkbench(root: HTMLElement, store: Store): void {
   }
 
   const render = (): void => {
+    const live = new Set(store.entries.map(entry => entry.name))
+    for (const name of expanded) {
+      if (!live.has(name)) expanded.delete(name)
+    }
+
     rows.replaceChildren()
     if (store.entries.length === 0) {
       const empty = document.createElement('p')
@@ -157,5 +188,14 @@ export function mountWorkbench(root: HTMLElement, store: Store): void {
   store.subscribe(render)
   render()
 
-  window.addEventListener('resize', render)
+  // Coalesce a burst of resize events into one render per frame, rather than
+  // rebuilding every row's DOM on every single event.
+  let resizeFrame: number | null = null
+  window.addEventListener('resize', () => {
+    if (resizeFrame !== null) return
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = null
+      render()
+    })
+  })
 }

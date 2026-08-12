@@ -210,6 +210,10 @@ button:hover {
   margin-top: 0.6rem;
 }
 
+.vrow-detail[hidden] {
+  display: none;
+}
+
 @media (max-width: 40rem) {
   .vrow-detail {
     grid-template-columns: minmax(0, 1fr);
