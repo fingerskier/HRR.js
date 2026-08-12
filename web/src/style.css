@@ -49,3 +49,70 @@ a {
   display: grid;
   gap: 1rem;
 }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1rem 1.1rem 1.2rem;
+}
+
+.panel > h2 {
+  margin: 0 0 0.15rem;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.panel > .hint {
+  margin: 0 0 0.9rem;
+  color: var(--ink-dim);
+  font-size: 0.85rem;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  border-radius: 4px;
+}
+
+input,
+select,
+button {
+  font: inherit;
+  color: var(--ink);
+  background: #0d1017;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.error {
+  color: var(--bad);
+  font-size: 0.85rem;
+  min-height: 1.2em;
+  margin: 0.4rem 0 0;
+}
+
+.readout {
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+  min-height: 1.2em;
+}
