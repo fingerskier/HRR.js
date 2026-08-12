@@ -10,8 +10,10 @@ const SEED: Array<[string, string]> = [
 
 /**
  * One superposed trace holding every key→value binding, plus a sweep showing
- * how confidence decays as the trace fills up. The decay, not the lookup, is
- * the interesting part: the memory degrades gradually rather than failing.
+ * how recall accuracy decays as the trace fills up. Recall is reconstructed
+ * from the trace, not looked up from a ground truth, so a crowded trace can
+ * return the wrong value — the facts table keeps its own record of what was
+ * actually stored and flags any row where recall no longer agrees with it.
  */
 export function mountMemory(root: HTMLElement, store: Store): void {
   const panel = document.createElement('section')
@@ -19,9 +21,10 @@ export function mountMemory(root: HTMLElement, store: Store): void {
   panel.innerHTML = `
     <h2>Holographic memory</h2>
     <p class="hint">
-      Every fact is bound and summed into a single vector. Probing unbinds the
-      key and cleans up against the known values — confidence falls as the
-      trace crowds.
+      Every fact is bound and summed into a single vector. Recall is
+      reconstructed, not looked up — unbinding the key and cleaning up
+      against the known values — so once the trace is crowded it can return
+      the wrong value. Mismatches below are highlighted, not hidden.
     </p>
     <form class="row" id="store-form">
       <input id="mem-key" placeholder="key" autocomplete="off" size="16" />
@@ -57,19 +60,31 @@ export function mountMemory(root: HTMLElement, store: Store): void {
   const capacity = panel.querySelector<HTMLCanvasElement>('#capacity')!
 
   let memory = new HolographicMemory(store.dim)
-  for (const [key, value] of SEED) memory.store(key, value)
+  // Ground truth: exactly what the user (or the seed) stored, independent of
+  // whatever the trace's cleanup step reconstructs. A dimension change must
+  // migrate from here, never from `probe` — probing returns the best guess,
+  // not a fact, and re-storing a guess would silently bake corruption in.
+  const trueFacts = new Map<string, string>()
+  for (const [key, value] of SEED) {
+    memory.store(key, value)
+    trueFacts.set(key, value)
+  }
 
   const renderFacts = (): void => {
     facts.replaceChildren()
-    for (const key of [...memory.keys()]) {
+    for (const [key, storedValue] of trueFacts) {
       const row = document.createElement('tr')
 
       const keyCell = document.createElement('td')
       keyCell.textContent = key
 
-      const probeCell = document.createElement('td')
+      const storedCell = document.createElement('td')
+      storedCell.textContent = storedValue
+
+      const recalledCell = document.createElement('td')
       const probed = memory.probe(key)
-      probeCell.textContent = probed === null ? '—' : probed.value
+      const recalledValue = probed === null ? null : probed.value
+      recalledCell.textContent = recalledValue === null ? '—' : recalledValue
 
       const confCell = document.createElement('td')
       confCell.textContent = probed === null ? '—' : probed.confidence.toFixed(4)
@@ -80,11 +95,14 @@ export function mountMemory(root: HTMLElement, store: Store): void {
       remove.textContent = '×'
       remove.addEventListener('click', () => {
         memory.delete(key)
+        trueFacts.delete(key)
         renderFacts()
       })
       actionCell.append(remove)
 
-      row.append(keyCell, probeCell, confCell, actionCell)
+      if (recalledValue !== storedValue) row.classList.add('fact-mismatch')
+
+      row.append(keyCell, storedCell, recalledCell, confCell, actionCell)
       facts.append(row)
     }
   }
@@ -139,6 +157,7 @@ export function mountMemory(root: HTMLElement, store: Store): void {
       return
     }
     memory.store(key, value)
+    trueFacts.set(key, value)
     keyInput.value = ''
     valueInput.value = ''
     renderFacts()
@@ -162,11 +181,11 @@ export function mountMemory(root: HTMLElement, store: Store): void {
   })
 
   const onDimChange = (): void => {
+    // Migrate from the ground truth, not from `probe` — probing returns the
+    // trace's best guess, and re-storing a guess would bake a bad recall in
+    // as if the user had typed it. A dimension change never alters facts.
     const rebuilt = new HolographicMemory(store.dim)
-    for (const key of [...memory.keys()]) {
-      const probed = memory.probe(key)
-      if (probed !== null) rebuilt.store(key, probed.value)
-    }
+    for (const [key, value] of trueFacts) rebuilt.store(key, value)
     memory = rebuilt
     renderFacts()
     renderCapacity()

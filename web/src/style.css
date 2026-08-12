@@ -257,6 +257,12 @@ button:hover {
   color: var(--bad);
 }
 
+/* A row where recall no longer matches what was actually stored — the trace
+   reconstructed the wrong value, not a bug in the panel. */
+.fact-mismatch td {
+  color: var(--bad);
+}
+
 .confidence {
   height: 6px;
   background: #0d1017;
