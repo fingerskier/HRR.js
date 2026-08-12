@@ -2,6 +2,7 @@ import './style.css'
 import { mountMatrix } from './panels/matrix.js'
 import { mountMemory } from './panels/memory.js'
 import { mountShelf } from './panels/shelf.js'
+import { mountSuperposition } from './panels/superposition.js'
 import { mountWorkbench } from './panels/workbench.js'
 import { Store } from './state.js'
 
@@ -14,6 +15,7 @@ mountShelf(app, store)
 mountWorkbench(app, store)
 mountMatrix(app, store)
 mountMemory(app, store)
+mountSuperposition(app, store)
 
 // A starting point that already shows the interesting behaviour.
 store.addAtom('dog')

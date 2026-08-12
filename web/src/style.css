@@ -279,3 +279,34 @@ button:hover {
   background: var(--accent);
   transition: width 120ms ease-out;
 }
+
+.contributions {
+  list-style: none;
+  margin: 0.6rem 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+}
+
+.contributions li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.15rem 0.2rem 0.15rem 0.5rem;
+}
+
+.contributions button {
+  border: 0;
+  background: transparent;
+  color: var(--ink-dim);
+  padding: 0 0.2rem;
+}
+
+.contributions button:hover {
+  color: var(--bad);
+}
