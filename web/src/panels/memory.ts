@@ -38,8 +38,8 @@ export function mountMemory(root: HTMLElement, store: Store): void {
     <div class="confidence"><span id="confidence-bar"></span></div>
     <h3 class="subhead">Capacity</h3>
     <p class="hint">
-      Mean probe confidence over a fresh memory holding N synthetic facts, at
-      the current dimension.
+      Share of probes that still return the exact stored value as the trace
+      fills with synthetic facts, at the current dimension.
     </p>
     <canvas id="capacity"></canvas>
   `
@@ -89,29 +89,44 @@ export function mountMemory(root: HTMLElement, store: Store): void {
     }
   }
 
-  const renderCapacity = (): void => {
+  const computeCapacity = (): Array<{ x: number; y: number }> => {
+    const maxFacts = Math.min(store.dim, 256)
+    const step = Math.max(1, Math.round(maxFacts / 16))
+    const memory = new HolographicMemory(store.dim)
     const points: Array<{ x: number; y: number }> = []
-    const step = Math.max(1, Math.round(store.dim / 32))
 
-    for (let n = step; n <= store.dim; n += step) {
-      const sweep = new HolographicMemory(store.dim)
-      for (let i = 0; i < n; i++) sweep.store(`k${i}`, `v${i}`)
+    for (let n = 1; n <= maxFacts; n++) {
+      memory.store(`k${n}`, `v${n}`)
+      if (n !== 1 && n % step !== 0 && n !== maxFacts) continue
 
-      let total = 0
-      for (let i = 0; i < n; i++) {
-        total += sweep.probe(`k${i}`)?.confidence ?? 0
+      const stride = Math.max(1, Math.floor(n / 6))
+      let correct = 0
+      let probes = 0
+      for (let i = 1; i <= n; i += stride) {
+        if (memory.probe(`k${i}`)?.value === `v${i}`) correct++
+        probes++
       }
-      points.push({ x: n, y: total / n })
+      points.push({ x: n, y: correct / probes })
     }
+    return points
+  }
 
+  let capacityPoints: Array<{ x: number; y: number }> = []
+
+  const drawCapacity = (): void => {
     queueMicrotask(() => {
-      drawChart(capacity, points, {
+      drawChart(capacity, capacityPoints, {
         xLabel: 'facts stored',
-        yLabel: 'mean confidence',
+        yLabel: 'probe accuracy',
         yMin: 0,
         yMax: 1,
       })
     })
+  }
+
+  const renderCapacity = (): void => {
+    capacityPoints = computeCapacity()
+    drawCapacity()
   }
 
   storeForm.addEventListener('submit', event => {
@@ -164,7 +179,7 @@ export function mountMemory(root: HTMLElement, store: Store): void {
     onDimChange()
   })
 
-  window.addEventListener('resize', renderCapacity)
+  window.addEventListener('resize', drawCapacity)
   renderFacts()
   renderCapacity()
 }
