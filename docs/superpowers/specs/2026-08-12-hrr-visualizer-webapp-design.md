@@ -47,9 +47,12 @@ unaffected. Coordinate the version with the still-open 0.3.0 publish task.
 
 ## Repository layout
 
-The webapp lives in `web/` with its own `package.json` holding only `vite` and
-`typescript` as devDependencies. The library's `package.json`, its `files`
-list, and its publish flow are untouched.
+The webapp lives in `web/` with its own `package.json`, holding `vite`,
+`vitest`, `typescript`, and `@types/node` as devDependencies — the last of
+these because `vite.config.ts` imports `node:url` and Vite declares
+`@types/node` only as an optional peer dependency, so without it the CI job
+fails to typecheck on a clean checkout. The library's `package.json`, its
+`files` list, and its publish flow are untouched.
 
 ```
 web/
@@ -128,12 +131,17 @@ distinguishing two hues.
 - **Shelf** — add and remove atoms by label, each with a color chip, plus the
   dimension selector.
 - **Workbench** — the expression bar and a list of results. Each result is a
-  row showing its strip and a small dial; clicking expands it to the full dial
-  and scatter.
+  row showing its strip; clicking expands it to the dial and scatter. The strip
+  alone keeps a row to one line, so a dozen results still fit on a screen.
 - **Similarity matrix** — live over every named vector.
 - **Memory** — a `HolographicMemory` panel with a store/delete table, a probe
   box reporting the recovered value and its confidence as a bar, and a capacity
-  sweep that plots confidence against the number of stored facts.
+  sweep that plots probe *accuracy* against the number of stored facts.
+  Accuracy, not confidence: confidence decays as roughly 1/√n at every
+  dimension, so it cannot show the difference between a 64-dimensional memory
+  and a 1024-dimensional one, which is the whole point of the panel. The table
+  shows the stored value beside the recalled one and highlights rows where they
+  disagree, so a crowded trace visibly starts losing facts.
 - **Superposition** — add and remove vectors with weights, showing the reduced
   phase strip beside a grayscale magnitude strip, so consensus and cancellation
   are distinguishable.
