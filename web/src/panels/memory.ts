@@ -148,21 +148,34 @@ export function mountMemory(root: HTMLElement, store: Store): void {
     })
   }
 
+  // Incremented on every renderCapacity() call and captured by its deferred
+  // sweep, so a rapid run of dimension changes only lets the newest request
+  // actually sweep — computeCapacity() reads store.dim live, so a stale
+  // callback would otherwise still burn up to ~600ms measuring a dimension
+  // nobody is looking at anymore.
+  let capacityToken = 0
+
   const renderCapacity = (): void => {
+    const token = ++capacityToken
+
     // computeCapacity() is synchronous and takes ~130ms at dim 256, ~600ms
-    // at dim 1024. Paint a placeholder first, then defer the sweep to the
-    // next frame so the browser actually gets to paint it — running the
-    // sweep in this same task would compute the placeholder pixels but the
-    // blocking loop right after would prevent them from ever being shown
-    // (a queueMicrotask after the loop is later still, so that's no fix).
+    // at dim 1024. Paint a placeholder first so the pause reads as work, not
+    // a hang.
     const ctx = fitCanvas(capacity, 180)
     ctx.fillStyle = '#9aa3b2'
     ctx.font = '13px ui-sans-serif, system-ui, sans-serif'
     ctx.fillText('measuring capacity…', 4, 24)
 
+    // A single rAF is not a paint boundary: the browser runs every pending
+    // callback for a frame and paints afterwards, so the sweep would run in
+    // the same frame that was meant to show the placeholder. Waiting for the
+    // second frame guarantees the message reaches the screen first.
     requestAnimationFrame(() => {
-      capacityPoints = computeCapacity()
-      drawCapacity()
+      requestAnimationFrame(() => {
+        if (token !== capacityToken) return
+        capacityPoints = computeCapacity()
+        drawCapacity()
+      })
     })
   }
 
