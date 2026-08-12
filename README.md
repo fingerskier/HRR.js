@@ -5,6 +5,23 @@
 
 Minimal, deterministic, zero-dependency [Holographic Reduced Representations](https://en.wikipedia.org/wiki/Holographic_Reduced_Representation) for Node, browsers, and edge runtimes, built on phase vectors.
 
+## Try it
+
+An interactive workbench for these operations runs at
+**<https://fingerskier.github.io/HRR.js/>** — add atoms, bind and bundle them,
+and watch the phase vectors change.
+
+To run it locally:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+The app imports the library's TypeScript source directly, so edits to `src/`
+appear in the browser immediately.
+
 - **Zero runtime dependencies** — no Node builtins, no polyfills; the bundled SHA-256 is pure TypeScript
 - **Deterministic** — `encodeAtom('alice')` yields the identical vector on every platform, process, and version (SHA-256 derived)
 - **Phase vectors** in `[0, 2π)` — numerically stable, maps cleanly onto cosine similarity
