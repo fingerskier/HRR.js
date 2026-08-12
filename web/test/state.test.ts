@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { encodeAtom, similarity } from 'hrr-lib'
 import { ExprError } from '../src/expr.js'
 import { DIMS, Store } from '../src/state.js'
@@ -148,5 +148,80 @@ describe('Store', () => {
     store.addAtom('dog')
     expect(store.env().get('dog')).toBeDefined()
     expect(store.env().size).toBe(1)
+  })
+
+  it('protects the store from a caller mutating a vector obtained from get, entries, or env', () => {
+    const store = new Store()
+    store.addAtom('dog')
+
+    const viaGet = store.get('dog')!.vector
+    viaGet[0] = 999999
+
+    const viaEntries = store.entries[0]!.vector
+    viaEntries[1] = 999999
+
+    const viaEnv = store.env().get('dog')!
+    viaEnv[2] = 999999
+
+    const fresh = store.get('dog')!.vector
+    expect(fresh[0]).not.toBe(999999)
+    expect(fresh[1]).not.toBe(999999)
+    expect(fresh[2]).not.toBe(999999)
+    expect(Array.from(fresh)).toEqual(Array.from(encodeAtom('dog', 256)))
+  })
+
+  it('keeps notifying other subscribers when one throws, without hiding the mutation', () => {
+    const store = new Store()
+    const calls: string[] = []
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    store.subscribe(() => {
+      throw new Error('boom')
+    })
+    store.subscribe(() => {
+      calls.push('ok')
+    })
+
+    expect(() => store.addAtom('dog')).not.toThrow()
+    expect(calls).toEqual(['ok'])
+    expect(store.get('dog')).toBeDefined()
+    expect(errorSpy).toHaveBeenCalled()
+
+    errorSpy.mockRestore()
+  })
+
+  it('does not crash when a subscriber unsubscribes another during notification', () => {
+    const store = new Store()
+    const calls: string[] = []
+    let offB: () => void = () => {}
+
+    store.subscribe(() => {
+      calls.push('a')
+      offB()
+    })
+    offB = store.subscribe(() => {
+      calls.push('b')
+    })
+
+    expect(() => store.addAtom('dog')).not.toThrow()
+    expect(calls).toEqual(['a'])
+  })
+
+  it('reset empties entries, keeps the dimension, and lets auto names restart cleanly', () => {
+    const store = new Store()
+    store.setDim(64)
+    store.addAtom('dog')
+    store.addAtom('role')
+    store.submit('bind(dog, role)')
+
+    store.reset()
+
+    expect(store.entries).toEqual([])
+    expect(store.dim).toBe(64)
+
+    store.addAtom('dog')
+    store.addAtom('role')
+    const again = store.submit('bind(dog, role)')
+    expect(again.name).toBe('r1')
   })
 })

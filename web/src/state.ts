@@ -51,17 +51,18 @@ export class Store {
 
   /** Entries in insertion order. Derived entries follow their dependencies. */
   get entries(): Entry[] {
-    return [...this.#entries.values()]
+    return [...this.#entries.values()].map(entry => this.#exposed(entry))
   }
 
   get(name: string): Entry | undefined {
-    return this.#entries.get(name)
+    const entry = this.#entries.get(name)
+    return entry === undefined ? undefined : this.#exposed(entry)
   }
 
   /** The name→vector map the evaluator reads. */
   env(): Map<string, PhaseVector> {
     const env = new Map<string, PhaseVector>()
-    for (const entry of this.#entries.values()) env.set(entry.name, entry.vector)
+    for (const entry of this.#entries.values()) env.set(entry.name, this.#copy(entry.vector))
     return env
   }
 
@@ -174,7 +175,6 @@ export class Store {
     }
     if (dim === this.#dim) return
 
-    this.#dim = dim
     const rebuilt = new Map<string, Entry>()
     const env = new Map<string, PhaseVector>()
 
@@ -188,6 +188,10 @@ export class Store {
       env.set(entry.name, vector)
     }
 
+    // Both writes land together: a mid-loop throw above leaves #dim and
+    // #entries exactly as they were, so the store never reports a dimension
+    // its entries don't actually hold.
+    this.#dim = dim
     this.#entries = rebuilt
     this.#emit()
   }
@@ -198,6 +202,16 @@ export class Store {
     this.#colorCursor = 0
     this.#resultCursor = 0
     this.#emit()
+  }
+
+  /** A fresh, independent copy of a vector — never the store's own array. */
+  #copy(vector: PhaseVector): PhaseVector {
+    return vector.slice()
+  }
+
+  /** An entry safe to hand to a caller: its vector is a copy, not a live one. */
+  #exposed(entry: Entry): Entry {
+    return { ...entry, vector: this.#copy(entry.vector) }
   }
 
   #reevaluate(entry: Entry, env: Map<string, PhaseVector>): PhaseVector {
@@ -223,6 +237,14 @@ export class Store {
   }
 
   #emit(): void {
-    for (const listener of this.#listeners) listener()
+    for (const listener of this.#listeners) {
+      try {
+        listener()
+      } catch (error) {
+        // One bad subscriber must not stop the others, and must not make a
+        // mutation that already succeeded look like it failed to its caller.
+        console.error('HRR store subscriber threw', error)
+      }
+    }
   }
 }
