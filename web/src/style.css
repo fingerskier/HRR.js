@@ -219,3 +219,57 @@ button:hover {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.subhead {
+  margin: 1.4rem 0 0.15rem;
+  font-size: 0.9rem;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.facts {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+  margin: 0.6rem 0;
+}
+
+.facts td {
+  border-bottom: 1px solid var(--line);
+  padding: 0.25rem 0.4rem;
+}
+
+.facts td:last-child {
+  width: 1.8rem;
+  text-align: right;
+}
+
+.facts button {
+  border: 0;
+  background: transparent;
+  color: var(--ink-dim);
+  padding: 0 0.2rem;
+}
+
+.facts button:hover {
+  color: var(--bad);
+}
+
+.confidence {
+  height: 6px;
+  background: #0d1017;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 0.35rem 0 0.2rem;
+}
+
+.confidence span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 120ms ease-out;
+}
