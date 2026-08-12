@@ -1,5 +1,6 @@
 import { ExprError, splitAssignment } from '../expr.js'
 import type { Entry, Store } from '../state.js'
+import { onResize } from '../viz/canvas.js'
 import { drawDial } from '../viz/dial.js'
 import { drawScatter } from '../viz/scatter.js'
 import { drawStrip, indexAtX } from '../viz/strip.js'
@@ -190,12 +191,5 @@ export function mountWorkbench(root: HTMLElement, store: Store): void {
 
   // Coalesce a burst of resize events into one render per frame, rather than
   // rebuilding every row's DOM on every single event.
-  let resizeFrame: number | null = null
-  window.addEventListener('resize', () => {
-    if (resizeFrame !== null) return
-    resizeFrame = requestAnimationFrame(() => {
-      resizeFrame = null
-      render()
-    })
-  })
+  onResize(render)
 }

@@ -1,6 +1,6 @@
 import { Superposition } from 'hrr-lib'
 import type { Store } from '../state.js'
-import { fitCanvas, cssWidth } from '../viz/canvas.js'
+import { fitCanvas, cssWidth, onResize } from '../viz/canvas.js'
 import { magnitudeToColor } from '../viz/color.js'
 import { drawDial } from '../viz/dial.js'
 import { drawStrip } from '../viz/strip.js'
@@ -135,6 +135,6 @@ export function mountSuperposition(root: HTMLElement, store: Store): void {
   })
 
   store.subscribe(render)
-  window.addEventListener('resize', render)
+  onResize(render)
   render()
 }

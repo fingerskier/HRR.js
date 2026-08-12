@@ -26,8 +26,9 @@ export interface Statement {
 const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/
 
 /**
- * Split `name = expression` from a bare expression. Only a leading `=` at the
- * top level counts, so `similarity(a, b)` is never read as an assignment.
+ * Split `name = expression` from a bare expression. The grammar has no `=`
+ * operator, so the first `=` in the line is always the assignment — there is
+ * no need to distinguish a top-level `=` from a nested one.
  */
 export function splitAssignment(input: string): Statement {
   const eq = input.indexOf('=')

@@ -6,12 +6,23 @@ import { similarityToColor } from './color.js'
 const LABEL = 84
 const MAX_CELL = 46
 
+/**
+ * The side length of one heatmap cell for a given canvas width and entry
+ * count. Shared by `drawMatrix` and `cellAt` so hit-testing always agrees
+ * with what got drawn — the width source differs between the two callers,
+ * but the formula must not.
+ */
+export function cellSize(width: number, count: number): number {
+  return count === 0
+    ? MAX_CELL
+    : Math.min(MAX_CELL, Math.max(12, (width - LABEL) / count))
+}
+
 /** Every pair's cosine similarity as a heatmap, with names down both edges. */
 export function drawMatrix(canvas: HTMLCanvasElement, entries: Entry[]): void {
   const n = entries.length
   const width = cssWidth(canvas)
-  const cell =
-    n === 0 ? MAX_CELL : Math.min(MAX_CELL, Math.max(12, (width - LABEL) / n))
+  const cell = cellSize(width, n)
   const height = LABEL + cell * n
   const ctx = fitCanvas(canvas, Math.max(60, height))
 
@@ -76,7 +87,7 @@ export function cellAt(
 ): { row: number; col: number } | null {
   if (count === 0) return null
   const rect = canvas.getBoundingClientRect()
-  const cell = Math.min(MAX_CELL, Math.max(12, (rect.width - LABEL) / count))
+  const cell = cellSize(rect.width, count)
   const col = Math.floor((clientX - rect.left - LABEL) / cell)
   const row = Math.floor((clientY - rect.top - LABEL) / cell)
   if (row < 0 || col < 0 || row >= count || col >= count) return null

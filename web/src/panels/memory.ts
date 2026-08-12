@@ -1,5 +1,6 @@
 import { HolographicMemory } from 'hrr-lib'
 import type { Store } from '../state.js'
+import { fitCanvas, onResize } from '../viz/canvas.js'
 import { drawChart } from '../viz/chart.js'
 
 const SEED: Array<[string, string]> = [
@@ -32,7 +33,12 @@ export function mountMemory(root: HTMLElement, store: Store): void {
       <button type="submit">Store</button>
     </form>
     <p class="error" id="mem-error"></p>
-    <table class="facts"><tbody id="facts"></tbody></table>
+    <table class="facts">
+      <thead>
+        <tr><th>key</th><th>stored</th><th>recalled</th><th>conf</th><th></th></tr>
+      </thead>
+      <tbody id="facts"></tbody>
+    </table>
     <form class="row" id="probe-form">
       <input id="probe-key" placeholder="probe a key" autocomplete="off" size="16" />
       <button type="submit">Probe</button>
@@ -143,8 +149,21 @@ export function mountMemory(root: HTMLElement, store: Store): void {
   }
 
   const renderCapacity = (): void => {
-    capacityPoints = computeCapacity()
-    drawCapacity()
+    // computeCapacity() is synchronous and takes ~130ms at dim 256, ~600ms
+    // at dim 1024. Paint a placeholder first, then defer the sweep to the
+    // next frame so the browser actually gets to paint it — running the
+    // sweep in this same task would compute the placeholder pixels but the
+    // blocking loop right after would prevent them from ever being shown
+    // (a queueMicrotask after the loop is later still, so that's no fix).
+    const ctx = fitCanvas(capacity, 180)
+    ctx.fillStyle = '#9aa3b2'
+    ctx.font = '13px ui-sans-serif, system-ui, sans-serif'
+    ctx.fillText('measuring capacity…', 4, 24)
+
+    requestAnimationFrame(() => {
+      capacityPoints = computeCapacity()
+      drawCapacity()
+    })
   }
 
   storeForm.addEventListener('submit', event => {
@@ -198,7 +217,7 @@ export function mountMemory(root: HTMLElement, store: Store): void {
     onDimChange()
   })
 
-  window.addEventListener('resize', drawCapacity)
+  onResize(drawCapacity)
   renderFacts()
   renderCapacity()
 }

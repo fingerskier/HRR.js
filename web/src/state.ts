@@ -219,7 +219,12 @@ export class Store {
     if (value.kind !== 'vector') {
       throw new ExprError(`"${entry.source}" no longer produces a vector`)
     }
-    return value.vector
+    // A bare-reference expression (`source` is just a name) makes `evaluate`
+    // return the env entry by identity, not a copy. Without slicing here,
+    // that entry and the one it was copied from would end up sharing one
+    // Float64Array, breaking the no-aliasing invariant #copy/#exposed exist
+    // to enforce everywhere else in this class.
+    return value.vector.slice()
   }
 
   #nextColor(): string {

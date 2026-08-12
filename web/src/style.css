@@ -246,6 +246,12 @@ button:hover {
   text-align: right;
 }
 
+.facts th {
+  text-align: left;
+  color: var(--ink-dim);
+  font-weight: 400;
+}
+
 .facts button {
   border: 0;
   background: transparent;

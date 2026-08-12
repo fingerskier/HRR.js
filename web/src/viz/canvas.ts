@@ -25,3 +25,19 @@ export function fitCanvas(
 /** The CSS-pixel width a `fitCanvas` context draws into. */
 export const cssWidth = (canvas: HTMLCanvasElement): number =>
   canvas.clientWidth || canvas.parentElement?.clientWidth || 600
+
+/**
+ * Run `fn` at most once per animation frame, however many events arrive.
+ * Resize fires dozens of times a second during a drag, and every panel here
+ * redraws canvases — some rebuild DOM — on each one.
+ */
+export function onResize(fn: () => void): void {
+  let frame: number | null = null
+  window.addEventListener('resize', () => {
+    if (frame !== null) return
+    frame = requestAnimationFrame(() => {
+      frame = null
+      fn()
+    })
+  })
+}

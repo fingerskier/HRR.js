@@ -1,5 +1,6 @@
 import { similarity } from 'hrr-lib'
 import type { Store } from '../state.js'
+import { onResize } from '../viz/canvas.js'
 import { cellAt, drawMatrix } from '../viz/matrix.js'
 
 /**
@@ -50,6 +51,6 @@ export function mountMatrix(root: HTMLElement, store: Store): void {
   }
 
   store.subscribe(render)
-  window.addEventListener('resize', render)
+  onResize(render)
   render()
 }
