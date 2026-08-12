@@ -1,0 +1,51 @@
+:root {
+  --bg: #0f1115;
+  --panel: #171a21;
+  --line: #2a2f3a;
+  --ink: #e6e9ef;
+  --ink-dim: #9aa3b2;
+  --accent: #7aa2f7;
+  --bad: #f7768e;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0 1.25rem 3rem;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.masthead {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 2rem 0 1rem;
+}
+
+.masthead h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.6rem;
+  letter-spacing: -0.01em;
+}
+
+.masthead p {
+  margin: 0;
+  color: var(--ink-dim);
+  max-width: 40rem;
+}
+
+a {
+  color: var(--accent);
+}
+
+#app {
+  max-width: 60rem;
+  margin: 0 auto;
+  display: grid;
+  gap: 1rem;
+}
